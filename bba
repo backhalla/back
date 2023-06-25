@@ -1,0 +1,45 @@
+# 获取转账信息，跨入、月、周
+def get_transfer_info(wallet):
+    page = 0
+    num = 50
+    tx_info = []
+    while True:
+        time.sleep(3)
+        url = f"https://api.zksync.io/api/v0.1/account/{wallet}/history/{page*num}/{num}"
+        respone = requests.get(url)
+        tmp = json.loads(respone.text)
+        tx_info = tx_info + tmp
+        if len(tmp) == num:
+            page = page + 1
+        else:
+            tx_type = {'Deposit': 0, 'MintNFT': 0, 'Swap': 0, 'Transfer': 0, 'ChangePubKey': 0}
+            tx_month = {}
+            tx_week = {}
+            days_since_first_occurrence = -1
+            days_since_last_occurrence = -1
+            for tx in tx_info:
+                if days_since_last_occurrence == -1 and tx["tx"]["type"] != "Deposit":
+                    days_since_last_occurrence = days_count(tx["created_at"])
+                if tx["tx"]["type"] != "ChangePubKey":
+                    days_since_first_occurrence = days_count(tx["created_at"])
+                # 消息类型
+                if tx["tx"]["type"] not in tx_type.keys():
+                    tx_type.update({tx["tx"]["type"]: 1})
+                else:
+                    tx_type[tx["tx"]["type"]] = tx_type[tx["tx"]["type"]] + 1
+                date_obj = datetime.fromisoformat(tx["created_at"][:-1])
+                year, week_num, day_num = date_obj.isocalendar()
+                month_calendar = calendar.monthcalendar(year, date_obj.month)
+                month = f"{year}-{month_calendar}"
+                week = f"{year}-{week_num}"
+                if month not in tx_week.keys():
+                    tx_month.update({month: 1})
+                else:
+                    tx_month[month] = tx_month[month] + 1
+                if week not in tx_week.keys():
+                    tx_week.update({week: 1})
+                else:
+                    tx_week[week] = tx_week[week] + 1
+            # print(tx_type, tx_month, tx_week)
+            data = [len(tx_month), len(tx_week), tx_type["Deposit"], days_since_last_occurrence, days_since_first_occurrence]
+            return data
